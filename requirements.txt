@@ -1,0 +1,11 @@
+torch
+transformers
+sentencepiece
+sacrebleu
+datasets
+accelerate
+peft
+bitsandbytes
+huggingface_hub
+fasttext          # GlotLID language identification
+unbabel-comet     # xCOMET evaluation

@@ -1,0 +1,12 @@
+model,training_data,direction,test_set,chrF++,BLEU,xCOMET
+Extended NLLB-600M (zero-shot),-,de-hsb,original,23.5,9.2,
+NLLB-600M FT,KDE4 original,de-hsb,original,24.4,11.1,
+Qwen2.5-7B-Instruct + LoRA,KDE4 original,de-hsb,original,39.0,19.4,
+NLLB-600M FT,KDE4 rule-cleaned,de-hsb,original,39.8,,
+NLLB-600M FT,KDE4 rule-cleaned,de-hsb,cleaned,45.6,30.8,
+NLLB-600M FT,KDE4 + WMT22-100k (GlotLID),de-hsb,original,46.4,23.7,0.758
+NLLB-600M FT,KDE4 + OPUS pivot-MT,de-hsb,original,58.7,40.5,0.783
+Extended NLLB-600M (zero-shot),-,hsb-de,original,25.6,9.5,0.761
+NLLB-600M FT,KDE4 original,hsb-de,original,42.1,18.8,0.841
+Qwen2.5-7B-Instruct + LoRA,KDE4 original,hsb-de,original,40.0,20.3,0.843
+NLLB-600M FT,KDE4 + OPUS pivot-MT,hsb-de,original,33.2,6.9,0.804

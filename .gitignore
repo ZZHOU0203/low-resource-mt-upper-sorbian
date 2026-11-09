@@ -1,0 +1,23 @@
+# Data, models and run artifacts are not versioned
+data/*
+!data/README.md
+models/
+outputs/
+logs/
+*.out
+*.err
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.cache/
+
+# OS / editor
+.DS_Store
+__MACOSX/
+Thumbs.db
+~$*
+.idea/
+.vscode/
