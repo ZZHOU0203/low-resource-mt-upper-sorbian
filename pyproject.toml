@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hsbmt"
+version = "1.0.0"
+description = "Low-resource machine translation for German <-> Upper Sorbian with NLLB-200 and Qwen2.5 + LoRA"
+readme = "README.md"
+license = { text = "MIT" }
+authors = [{ name = "Ziyu Zhou" }]
+requires-python = ">=3.10"
+dependencies = [
+    "torch",
+    "transformers",
+    "sentencepiece",
+    "sacrebleu",
+    "datasets",
+    "accelerate",
+    "peft",
+    "tqdm",
+    "bitsandbytes",
+    "huggingface_hub",
+    "fasttext",
+    "unbabel-comet",
+]
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
+[tool.setuptools.packages.find]
+include = ["hsbmt*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

@@ -21,3 +21,7 @@ Thumbs.db
 ~$*
 .idea/
 .vscode/
+
+# Tests
+.pytest_cache/
+*.egg-info/

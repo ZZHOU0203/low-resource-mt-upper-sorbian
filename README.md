@@ -32,6 +32,8 @@ The test set is the 2,000-pair held-out KDE4 split. Metrics are chrF++, BLEU ([s
 
 ¹ This result is on the cleaned test set. On the original test set the score is 39.8 chrF++.
 
+Note: the original evaluation scripts scored NLLB and zero-shot outputs with sacreBLEU's default `chrF` (character n-grams only), and Qwen + LoRA outputs with `chrF++` (word bigrams added). The two usually differ by less than one point. The refactored evaluator (`hsbmt.evaluate.translate`) reports both.
+
 The same results are in [`results/hsb_results.csv`](results/hsb_results.csv).
 
 ## Pipeline
@@ -41,55 +43,59 @@ The same results are in [`results/hsb_results.csv`](results/hsb_results.csv).
 ## Repository layout
 
 ```
-src/            Python scripts. Run them from inside src/; paths are relative (../data, ../models, ../outputs).
-slurm/          SLURM job scripts used on the LRZ AI cluster (P100/A100 GPUs)
-  data/         GlotLID filtering and pivot-MT translation jobs
-  train/        NLLB and Qwen-LoRA training jobs
-  eval/         BLEU/chrF++ and xCOMET evaluation jobs
-data/           Data is not included; data/README.md explains how to download it
-results/        Final result table
-assets/         Figures used in this README
+hsbmt/                     Python package; every module is a CLI: python -m hsbmt.<module> --help
+├── config.py              Paths, NLLB language codes, translation directions
+├── io.py                  Line-aligned parallel-file helpers
+├── metrics.py             BLEU / chrF / chrF++ (sacreBLEU)
+├── data/
+│   ├── kde4.py            clean | split               KDE4 rule-based cleaning, train/dev/test split
+│   ├── leakage.py         check | diff | dedup        train–test overlap, leakage-free test sets
+│   ├── wmt22.py           rebuild | lid | categorize | filter   WMT22 bitext + GlotLID filter
+│   ├── pivot.py           inventory | candidates | build | translate   pivot-MT synthetic data
+│   └── combine.py         KDE4 train + extra data, without touching dev/test
+├── models/
+│   ├── nllb.py            extend | smoke-test         add hsb_Latn to NLLB-200; shared translate()
+│   └── qwen.py            prompts, 4-bit loading, greedy decoding
+├── train/
+│   ├── nllb.py            full fine-tuning
+│   └── qwen_lora.py       QLoRA fine-tuning (prompt tokens masked from the loss)
+└── evaluate/
+    ├── translate.py       nllb | qwen | qwen-lora  →  predictions + BLEU/chrF/chrF++
+    ├── xcomet.py          xCOMET-XL scoring
+    └── summarize.py       collect all scores into one table
+scripts/
+├── prepare_data.sh        builds every dataset used in the experiments
+└── run_experiments.sh     submits every training/evaluation job behind the results table
+slurm/                     generic job scripts for the LRZ AI cluster (P100 GPUs)
+tests/                     unit tests for the data-processing logic (pytest, CPU only)
+data/                      not included; data/README.md explains how to download it
+results/                   final result table (CSV)
+assets/                    figures used in this README
 ```
-
-### Scripts by pipeline stage
-
-| Stage | Scripts (`src/`) |
-|---|---|
-| Model extension | `extend_nllb_hsb.py`, `test_extended_nllb.py` |
-| KDE4 splits and cleaning | `split_data.py`, `clean_parallel_data.py`, `split_cleaned_data.py` |
-| Leakage control | `check_data_leakage.py`, `compare_original_cleaned_test.py`, `create_dedup_original_tests.py` |
-| WMT22 + GlotLID (Pipeline 1) | `split_wmt22_tsv.py`, `rebuild_wmt22_parallel.py`, `check_wmt22_lid_quality.py`, `summarize_lid_report.py`, `filter_wmt22_by_lid_category.py`, `create_combined_train_with_original_devtest.py`, `create_combined_train_100k_wmt22.py` |
-| Pivot-MT synthetic data (Pipeline 2) | `inventory_hsb_multilingual_sources.py`, `count_hsb_non_de_parallel_candidates.py`, `build_pipeline2_multilingual_source.py`, `translate_pipeline2_x_to_german.py`, `create_pipeline2_mt_de_splits.py` |
-| Training | `train_nllb_finetune.py`, `train_qwen_lora.py` |
-| Evaluation | `evaluate_extended_nllb_baseline.py`, `evaluate_qwen_baseline.py`, `evaluate_qwen_lora.py`, `evaluate_xcomet.py`, `summarize_xcomet_results.py`, `summarize_dedup_eval_results.py` |
 
 ## Reproducing
 
 ```bash
-pip install -r requirements.txt
+pip install -e ".[dev]"
+pytest                                    # data-processing unit tests, CPU only
 
-# 1. Download the data (see data/README.md), then build the splits
-cd src
-python split_data.py
-python clean_parallel_data.py && python split_cleaned_data.py
+# 1. Download the data (data/README.md), then build all datasets
+bash scripts/prepare_data.sh
 
 # 2. Add the hsb_Latn token to NLLB-200-distilled-600M
-python extend_nllb_hsb.py            # writes ../models/nllb-600M-hsb-init
+python -m hsbmt.models.nllb extend        # writes models/nllb-600M-hsb-init
 
-# 3. Fine-tune and evaluate (use the SLURM scripts as the reference configs)
-python train_nllb_finetune.py --direction de-hsb --split_dir ../data/splits_cleaned \
-    --output_dir ../models/nllb-600M-de-hsb-cleaned
-python evaluate_extended_nllb_baseline.py --direction de-hsb \
-    --model_path ../models/nllb-600M-de-hsb-cleaned --num_test 2000
+# 3. Train and evaluate one configuration ...
+python -m hsbmt.train.nllb --direction de-hsb --split_dir data/splits_cleaned \
+    --output_dir models/nllb-600M-de-hsb-cleaned
+python -m hsbmt.evaluate.translate nllb --direction de-hsb --model_path models/nllb-600M-de-hsb-cleaned
+
+# ... or submit every experiment on a SLURM cluster (from the repository root)
+bash scripts/run_experiments.sh
+python -m hsbmt.evaluate.summarize        # outputs/results_summary.tsv
 ```
 
-The SLURM scripts expect the repository at `$PROJECT_ROOT` (default `~/NLP-26SS`). Submit them from the repository root so that `logs/` resolves correctly:
-
-```bash
-mkdir -p logs && sbatch slurm/train/train_nllb_pipeline2_mt_de_51k_p100.sh
-```
-
-**Training setup:** NLLB was trained with full fine-tuning (5 epochs, lr 5e-5, effective batch size 16). Qwen2.5-7B was trained with LoRA (r=8, α=16, dropout 0.05, 4-bit quantization, 3 epochs, lr 2e-4).
+**Training setup:** NLLB was trained with full fine-tuning (5 epochs, lr 5e-5, effective batch size 16). Qwen2.5-7B was trained with LoRA (r=8, α=16, dropout 0.05, 4-bit quantization, 3 epochs, lr 2e-4). NLLB decodes with beam size 5; Qwen decodes greedily.
 
 ## Limitations
 

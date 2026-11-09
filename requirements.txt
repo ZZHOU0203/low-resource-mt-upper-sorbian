@@ -5,6 +5,7 @@ sacrebleu
 datasets
 accelerate
 peft
+tqdm
 bitsandbytes
 huggingface_hub
 fasttext          # GlotLID language identification
